@@ -5,6 +5,9 @@ import textdetection
 def nothing(x):
     pass
 
+# Set-ExecutionPolicy Unrestricted -Scope Process
+# .\mtgvenv\Scripts\activate
+
 # Identification
 # Isolate the name and cost
 # Estimate corner points of contour
@@ -40,7 +43,7 @@ while True:
     # How many cards are in the image
     # print("Cards in the image:", len(contours))
 
-    cv2.imshow('frame', imgDilated)
+    cv2.imshow('frame', imgOrig)
     
     if cv2.waitKey(1) == ord('q'):
         break

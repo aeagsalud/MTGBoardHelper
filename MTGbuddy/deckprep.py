@@ -27,7 +27,7 @@ def parseDeckList(deckList):
 def getCardImg(cardName):
     # Get card date
     card = loads(get(f"https://api.scryfall.com/cards/search?q={cardName}").text)
-    img_url = card['data'][0]['image_uris']['normal']
+    img_url = card['data'][0]['image_uris']['large']
     
     # Save the image
     fileName = f"{cardName}.jpeg"
@@ -41,7 +41,7 @@ def saveDeckImgs(deckList):
     for card in deckList:
         getCardImg(card)
 
-getCardImg('Prosper, Tome-Bound')
+getCardImg('Academy Manufactor')
 
 test_list = """ 1 Academy Manufactor
 1 Apex of Power

@@ -1,33 +1,48 @@
 import os
 import time
+import re
 from requests import get
 from json import loads
 from shutil import copyfileobj
 
 # Parses deck list in MTGO format (moxfield) and returns an array of each unique card
 def parseDeckList(deckList):
-    # Split the input data into lines and strip any leading/trailing whitespace
-    lines = deckList.strip().split('/n')
+    # Split the input data into lines
+    lines = deckList.strip().split('\n')
 
     # Initialize an empty card list
     cards = []
 
     # Iterate over each line and parse the card name
     for line in lines:
-        if not line.strip():
-            continue
-        line = line.replace("'","")
-        parts = line.split(' ', 1)
-        card_name = parts[1]
-        cards.append(card_name)
+        if line.strip():
+            # Remove leading numbers and any following spaces
+            card_name = re.sub(r'^\d+\s+', '', line)
+            cards.append(card_name)
 
     return cards
 
 # Uses the scryfall API to get an image of the desired card
 def getCardImg(cardName):
     # Get card date
-    card = loads(get(f"https://api.scryfall.com/cards/search?q={cardName}").text)
-    img_url = card['data'][0]['image_uris']['large']
+    response = get(f"https://api.scryfall.com/cards/search?q={cardName}")
+
+    if response.status_code != 200:
+        print(f"request failed with status code: {response.status_code}")
+
+    card = loads(response.text)
+
+    if 'data' not in card:
+        print("No 'data' key found in the response.")
+        return
+    card_data = card['data'][0]
+    if 'image_uris' in card_data:
+        img_url = card['data'][0]['image_uris']['normal']
+    elif 'card_faces' in card_data: # Special case of double-faced cards, get the first face
+        img_url = card_data['card_faces'][0]['image_uris']['normal']
+    else:
+        print("No 'image_uris' found in the card data")
+        return
     
     # Save the image
     fileName = f"{cardName}.jpeg"
@@ -40,8 +55,6 @@ def getCardImg(cardName):
 def saveDeckImgs(deckList):
     for card in deckList:
         getCardImg(card)
-
-getCardImg('Academy Manufactor')
 
 test_list = """ 1 Academy Manufactor
 1 Apex of Power
@@ -119,3 +132,9 @@ test_list = """ 1 Academy Manufactor
 1 Zhalfirin Void
 
 1 Prosper, Tome-Bound """
+
+# getCardImg('Birgi God of Storytelling')
+
+cards = parseDeckList(test_list)
+print(cards)
+saveDeckImgs(cards)

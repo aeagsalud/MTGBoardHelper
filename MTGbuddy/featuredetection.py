@@ -12,24 +12,9 @@ orb = cv2.ORB_create(nfeatures=1000)
 # Import images
 for card in myList:
     curImg = cv2.imread(f'{path}/{card}', 0)
-    blurredImg = cv2.GaussianBlur(curImg, (15,15), 0)
-    images.append(blurredImg)
+    blurredImg = cv2.GaussianBlur(curImg, (11,11), 0)
+    images.append(curImg)
     cardNames.append(os.path.splitext(card)[0])
-
-# Initializes the images of the deck for openCV
-def deckInit():
-    # Initialize
-    path = 'cardquery'
-    images = []
-    cardNames = []
-    myList = os.listdir(path)
-    orb = cv2.ORB_create(nfeatures=1000)
-
-    # Import images
-    for card in myList:
-        curImg = cv2.imread(f'{path}/{card}', 0)
-        images.append(curImg)
-        cardNames.append(os.path.splitext(card)[0])
 
 # Function to get descriptors
 def findDes(images):
@@ -40,7 +25,9 @@ def findDes(images):
     return desList
 
 # Function to find the card id by comparing descriptors
-def findID(img, desList, thresh):
+# Note: thresh is deciding the minimum matchList value acceptable
+def findID(img, thresh):
+    desList = findDes(images)
     kp2, des2 = orb.detectAndCompute(img,None)
     bf = cv2.BFMatcher()
     matchList = []
@@ -58,30 +45,5 @@ def findID(img, desList, thresh):
     if len(matchList) != 0:
         if max(matchList) > thresh:
             finalIdx = matchList.index(max(matchList))
+            cv2.imshow("training image", images[finalIdx])
     return finalIdx
-
-desList = findDes(images)
-
-# Get camera feed and process
-cap = cv2.VideoCapture(0)
-
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-
-while True:
-    ret, img2 = cap.read()
-    imgOriginal = img2.copy()
-    img2 = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)        # Converts image to grayscale
-
-    id = findID(img2, desList, 8)
-    if id != -1:
-        cv2.putText(imgOriginal, cardNames[id], (50,50), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
-
-    cv2.imshow('frame', imgOriginal)
-
-    if cv2.waitKey(1) == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-

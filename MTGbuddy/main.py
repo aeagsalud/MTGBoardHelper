@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import featuredetection
 
 
 def nothing(x):
@@ -44,6 +45,44 @@ def cardFilter(imgProcessed):
 
     return contours, cardHash, cardposData
 
+# Create a separate image of each card
+def isolateCards(contours, cardHash):
+    # Edge case 0: there are no cards detected
+    cardCount = np.count_nonzero(cardHash)
+    if cardCount == 0:
+        return []
+
+    # Order matters, approx must match:
+    # [top left, top right, bottom left, bottom right]
+    width, height = 250, 350
+    pts = np.float32([[0,0],[width,0],[0,height],[width,height]])
+
+    imgCards = []
+    cardPos = []
+
+    # Iterate through valid contours
+    for i in range(len(contours)):
+        if cardHash[i] == 1:
+            # Get corner points
+            area = cv2.contourArea(contours[i])
+            perim = cv2.arcLength(contours[i], True)
+            epsilon = 0.01 * perim
+            approx = cv2.approxPolyDP(contours[i], epsilon, True)
+
+            # Adjust approx format to match pts
+            approx = np.array(approx)
+            approx = approx.reshape((4,2)).astype(np.float32)
+
+            # flatten and isolate image
+            realpts = np.float32([[approx[1],approx[0],approx[2],approx[3]]])
+            matrix = cv2.getPerspectiveTransform(realpts, pts)
+            imgCard = cv2.warpPerspective(imgOrig, matrix, (width, height))
+            imgCardGray = cv2.cvtColor(imgCard, cv2.COLOR_BGR2GRAY)
+            imgCards.append(imgCardGray)
+            cardPos.append(realpts)
+    
+    return imgCards, cardPos
+
 def isTapped(cardHash, cardposData, img):
     for i in range(len(cardposData)):
         # Initialize variables
@@ -70,8 +109,8 @@ def isTapped(cardHash, cardposData, img):
 # Get the camera feed
 cap = cv2.VideoCapture(0)
 
-# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 cv2.namedWindow("Parameters")
 cv2.createTrackbar("minThreshold", "Parameters", 24, 255, nothing)
@@ -93,21 +132,31 @@ while True:
     # Image Pre-processing
     imgPreproc = imageProc(img)
     
-    # edge and contour detection
+    # edge and contour detection to find number of cards
     contours, cardHash, cardposData = cardFilter(imgPreproc)
-    # isTapped(cardHash, cardposData, img)
+    
+    # Isolate and flatten card images
+    imgCards, cardPos = isolateCards(contours, cardHash)
 
+    # Identify cards
+    cardIds = []
+    if imgCards:                                                           # Check if empty
+        for imgCard in imgCards:
+            id = featuredetection.findID(imgCard, 13)
+            cardIds.append(featuredetection.cardNames[id])
+            imgStack = np.hstack(imgCards)
+            cv2.imshow("cards", imgStack)
+    # print(cardPos[1][0][0])
+    for i in range(len(cardIds)):
+        cv2.putText(img, cardIds[i], cardPos[i][0,0].astype(int), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
     cardNum = np.count_nonzero(cardHash)
-    # How many cards are in the image
-    # print("Cards in the image:", len(contours))
 
-    cv2.imshow("preproc", imgPreproc)
     cv2.imshow("Output", img)
 
-    # print("number of cards:", cardNum)
     
     if cv2.waitKey(1) == ord('q'):
         break
 
+# cv2.imwrite('cardimage.jpg', card1)
 cap.release()
 cv2.destroyAllWindows()
